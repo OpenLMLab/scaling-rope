@@ -52,18 +52,18 @@
 | base=500 log-scaled | 9.13 | 10.01 | 12.07 | 19.07 |
 | base=1000000 | 7.07 | 76.82 | 1520.41 | 8349.9 |
 
-## 原理解释
+<!-- ## 原理解释
 
 ### RoPE外推的临界维度
 
-**引理 1. (临界维度的定义)** 对于基于RoPE的大语言模型（RoPE-based LLMs），假设其预训练文本长度为 $T_\text{train}$，自注意力头维度数量为$d$，即 $\bm{q}_t,\bm{k}_s\in\mathbb{R}^d$。那么存在这样一个维度， $d_\text{extra}$ ：前$d_\text{extra}$个维度 感知了对应维度上全周期的位置编码，后 $d-d_\text{extra}$ 个维度 只感知了对应维度上一个周期内的部分编码，如下式所示。  
+**引理 1. (临界维度的定义)** 对于基于RoPE的大语言模型（RoPE-based LLMs），假设其预训练文本长度为 $T_\text{train}$，自注意力头维度数量为 $d$ ，即 $\bm{q}_t,\bm{k}_s\in\mathbb{R}^d$ 。那么存在这样一个维度， $d_\text{extra}$ ：前$d_\text{extra}$个维度 感知了对应维度上全周期的位置编码，后 $d-d_\text{extra}$ 个维度 只感知了对应维度上一个周期内的部分编码，如下式所示。  
 $$\begin{aligned}
 T_n=\frac{2\pi}{\theta_n}=2\pi\cdot{10000}^{\frac{2n}{d}}\leq T_\text{train}\text{,} &\text{\quad for\ }n=0,\cdots,d_\text{extra}/2-1\text{,} \\
 T_n=\frac{2\pi}{\theta_n}=2\pi\cdot{10000}^{\frac{2n}{d}}>T_\text{train}\text{,} &\text{\quad for\ }n=d_\text{extra}/2,\cdots,d/2-1\text{.} 
-\end{aligned}\tag{12}$$  
+\end{aligned}$$  
 因此，对于基于RoPE的大语言模型，我们将 $d_\text{extra}$，即 $\bm{q}_t,\bm{k}_s$ 中感知了全周期位置编码的维度的数量，称作 **RoPE外推的临界维度**（**critical dimension for RoPE-based extrapolation**），计算方式如下式所示。  
 $$d_\text{extra}=2\left\lceil{\dfrac{d}{2}}\log_{10000}{\dfrac{T_\text{train}}{2\pi}}\right\rceil
-\text{.}\tag{13}$$
+\text{.}$$
 
 对于LLaMA2，根据其训练长度 $T_\text{train}=4096$ ，注意力头维度 $d=128$ ，可以得到 $d_\text{extra}=92$ ，即**LLaMA2中前92维度都是感知了完整的位置信息**，在外推时是比较可靠的，**后36维度 由于没有感知完整的位置信息 是外推问题的根源**。
 
@@ -74,13 +74,13 @@ $$d_\text{extra}=2\left\lceil{\dfrac{d}{2}}\log_{10000}{\dfrac{T_\text{train}}{2
 ### RoPE外推的缩放法则
 
 **定理 3. (扩展的RoPE外推的缩放法则)** 对于基于RoPE的大语言模型（RoPE-based LLMs），假设其预训练文本长度 $T_\text{train}$，对应临界维度 $d_\text{extra}$，如果在微调阶段将base调整为$\beta>1$，并且使用更长长度长度 $T_\text{tune}\geq T_\text{train}$ 的文本续训，那么模型的外推能力不降；当且仅当 $\beta=10000$ 且 $T_\text{tune}=T_\text{train}$ 时，外推效果不变。此外，存在一个 **临界base**  $\beta_0$ ，根据 续训文本长度 $T_\text{tune}$ 和 预训练文本长度 $T_\text{train}$ 决定：  
-$$\beta_0={10000}^{\log_{\frac{T_\text{train}}{2\pi}}{\frac{T_\text{tune}}{2\pi}}}\text{.}\tag{16a}$$  
-如果 $\beta>\beta_0$，外推上界根据 base取值 $\beta$ 和 临界维度 $d_\text{extra}$ 决定:  
-$$T_\text{extra}=2\pi\cdot\beta^{d_\text{extra}\cdot\frac{1}{d}}= 2\pi\cdot\beta^{\left\lceil{\frac{d}{2}}\log_{10000}{\frac{T_\text{train}}{2\pi}}\right\rceil\cdot{\frac{2}{d}}}\text{.}\tag{16b}$$  
+$$\beta_0={10000}^{\log_{\frac{T_\text{train}}{2\pi}}{\frac{T_\text{tune}}{2\pi}}}\text{.}$$  
+如果 $\beta>\beta_0$，外推上界根据 base取值 $\beta$ 和 临界维度 $d_\text{extra}$ 决定：  
+$$T_\text{extra}=2\pi\cdot\beta^{d_\text{extra}\cdot\frac{1}{d}}= 2\pi\cdot\beta^{\left\lceil{\frac{d}{2}}\log_{10000}{\frac{T_\text{train}}{2\pi}}\right\rceil\cdot{\frac{2}{d}}}\text{.}$$  
 如果 $\beta\leq\beta_0$，外推上界就是续训长度 $T_\text{tune}$，但是 临界维度会更新如下：  
-$$d'_\text{extra}=2\left\lceil{\frac{d}{2}}\log_{\beta}{\frac{T_\text{tune}}{2\pi}}\right\rceil\geq2\left\lceil{\frac{d}{2}}\log_{10000}{\frac{T_\text{train}}{2\pi}}\right\rceil=d_\text{extra}\text{.}\tag{16c}$$  
+$$d'_\text{extra}=2\left\lceil{\frac{d}{2}}\log_{\beta}{\frac{T_\text{tune}}{2\pi}}\right\rceil\geq2\left\lceil{\frac{d}{2}}\log_{10000}{\frac{T_\text{train}}{2\pi}}\right\rceil=d_\text{extra}\text{.}$$  
 虽然如此，如果 $\beta$ 足够小，模型还是可以外推超过 $T_\text{tune}$；特别地，如果 $\beta$ 小于如下的 $\beta_1,\beta_2,\beta_3$，外推效果会得到显著提升。  
-$$\beta_1 = \frac{2 T_\text{tune}}{\pi}\text{, \quad}\beta_2 = \frac{T_\text{tune}}{\pi}\text{, \quad}\beta_3 = \frac{T_\text{tune}}{2\pi}\text{.}\tag{16d}$$  
+$$\beta_1 = \frac{2 T_\text{tune}}{\pi}\text{, \quad}\beta_2 = \frac{T_\text{tune}}{\pi}\text{, \quad}\beta_3 = \frac{T_\text{tune}}{2\pi}\text{.}$$  
 
 将不同base取值下续训LLaMA2实际支持的最大上下文长度，对比理论外推上界，两者呈现惊人的重合。
 
@@ -90,4 +90,4 @@ $$\beta_1 = \frac{2 T_\text{tune}}{\pi}\text{, \quad}\beta_2 = \frac{T_\text{tun
 
 <!-- ## 代码结构
 
-## 任务评测 -->
+## 任务评测 --> -->
